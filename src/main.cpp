@@ -4,24 +4,118 @@
 #include <unordered_map>
 #include "boost/any.hpp"
 
-std::string decode(std::vector<char>::iterator& begin,
+class Bencode {
+public:
+  enum DataType {
+    kString = 0,
+    kInt = 1,
+    kList = 2,
+    kDict = 3
+  };
+
+  Bencode();
+  Bencode(std::string const&);
+  Bencode(int const&);
+  Bencode(std::vector<Bencode> const&);
+  Bencode(std::unordered_map<std::string, Bencode> const&);
+  Bencode(DataType dataType);
+
+  DataType getDataType();
+  std::string getString();
+  int getInt();
+  std::vector<Bencode> getList();
+  std::unordered_map<std::string, Bencode> getDict();
+private:
+  DataType dataType_;
+  std::string string_;
+  int int_;
+  std::vector<Bencode> list_;
+  std::unordered_map<std::string, Bencode> dict_; 
+};
+
+Bencode::Bencode() {}
+
+Bencode::Bencode(std::string const& bString) {
+  dataType_ = Bencode::kString;
+  string_ = bString;
+}
+
+Bencode::Bencode(int const& bInt) {
+  dataType_ = Bencode::kInt;
+  int_ = bInt;
+}
+
+Bencode::Bencode(std::vector<Bencode> const& bList) {
+  dataType_ = Bencode::kList;
+  list_ = bList;
+}
+
+Bencode::Bencode(std::unordered_map<std::string, Bencode> const& bDict) {
+  dataType_ = Bencode::kDict;
+  dict_ = bDict;
+}
+
+Bencode::DataType Bencode::getDataType() {
+  return dataType_;
+}
+
+std::string Bencode::getString() {
+  return string_;  
+}
+
+int Bencode::getInt() {
+  return int_;
+}
+
+std::vector<Bencode> Bencode::getList() {
+  return list_;
+}
+
+std::unordered_map<std::string, Bencode> Bencode::getDict() {
+  return dict_;
+}
+
+Bencode decode(std::vector<char>::iterator& begin,
     std::vector<char>::iterator& end) {
+  
   switch(*begin) {
+
     case 'i': {
-      return "i";
-    }
-    case 'd': {
-      std::unordered_map<std::string, boost::any> dict;
-      while(*(++begin) != 'e') {
-        std::cout << *begin << std::endl;
-        std::string key = decode(begin, end);
-        std::string value = decode(begin, end);
-        dict[key] = value;
-        std::cout << key << std::endl;
+      begin++;
+      std::string bIntString;
+      while(*begin != 'e') {
+        bIntString += *begin; 
+        begin++;
       }
-      return "success";
+      int bInt = std::stoi(bIntString);
+      return Bencode(bInt);
     }
-    default:
+
+    case 'l': {
+      std::vector<Bencode> bList; 
+      begin++;
+      while(*begin != 'e') {
+        Bencode value = decode(begin, end);
+        bList.push_back(value);
+        begin++;
+      }
+      return Bencode(bList);
+    }
+
+    case 'd': {
+      std::unordered_map<std::string, Bencode> bDict;
+      begin++;
+      while(*begin != 'e') {
+        Bencode key = decode(begin, end);
+        begin++;
+        Bencode value = decode(begin, end);
+        bDict[key.getString()] = value;
+        begin++;
+      }
+      return Bencode(bDict);
+    }
+
+    default: {
       // Byte string
       if (std::isdigit(*begin)) {
         std::string len_str;
@@ -34,17 +128,27 @@ std::string decode(std::vector<char>::iterator& begin,
         for (int i = 0; i < len; i++) {
           str += *(++begin); 
         }
-        return str; 
-      } else {
-        return "wtf";
+        return Bencode(str); 
       }
+      return Bencode("error");
+    }
   }
-  return "1";
+}
+
+Bencode decode_torrent(std::vector<char>::iterator& begin,
+    std::vector<char>::iterator& end) {
+  Bencode torrentDict = decode(begin, end);
+  std::string announce = torrentDict.getDict()["announce"].getString();
+  int piecesLength = torrentDict.getDict()["info"].getDict()["piece length"].getInt(); 
+  std::cout << announce << std::endl;
+  std::cout << piecesLength << std::endl;
+  return torrentDict;
 }
 
 void load_file(std::string filename, std::vector<char>& buffer) {
   std::ifstream file(filename, std::ios::binary);
   std::streampos fileSize;
+  file.unsetf(std::ios::skipws);
   file.seekg(0, std::ios::end);
   fileSize = file.tellg();
   file.seekg(0, std::ios::beg);
@@ -64,9 +168,6 @@ int main() {
   std::vector<char>::iterator begin = buffer.begin();
   std::vector<char>::iterator end = buffer.end();
 
-  std::string res = decode(begin, end);
-
-  std::cout << res << std::endl;
-
+  Bencode res = decode_torrent(begin, end);
   return 0;
 }
