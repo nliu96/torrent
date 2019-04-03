@@ -1,7 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-#include <unordered_map>
+#include <map>
 #include "boost/any.hpp"
 
 class Bencode {
@@ -17,21 +17,23 @@ public:
   Bencode(std::string const&);
   Bencode(int const&);
   Bencode(std::vector<Bencode> const&);
-  Bencode(std::unordered_map<std::string, Bencode> const&);
+  Bencode(std::map<std::string, Bencode> const&);
   Bencode(DataType dataType);
 
   DataType getDataType();
   std::string getString();
   int getInt();
   std::vector<Bencode> getList();
-  std::unordered_map<std::string, Bencode> getDict();
+  std::map<std::string, Bencode> getDict();
 private:
   DataType dataType_;
   std::string string_;
   int int_;
   std::vector<Bencode> list_;
-  std::unordered_map<std::string, Bencode> dict_; 
+  std::map<std::string, Bencode> dict_; 
 };
+
+std::string encode(Bencode in);
 
 Bencode decode(std::vector<char>::iterator& begin,
     std::vector<char>::iterator& end);

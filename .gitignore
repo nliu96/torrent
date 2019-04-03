@@ -36,3 +36,9 @@
 
 # Torrent files
 *.torrent
+
+# Bin directory
+bin/
+
+# VSCode files
+.vscode/
