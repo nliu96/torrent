@@ -116,7 +116,6 @@ Bencode decode(std::vector<char>::iterator &begin, std::vector<char>::iterator &
       begin++;
     }
     int bInt = std::stoi(bIntString);
-    std::cout << "str: " << bIntString << std::endl;
     return Bencode(bInt);
   }
 
@@ -140,7 +139,6 @@ Bencode decode(std::vector<char>::iterator &begin, std::vector<char>::iterator &
     while (*begin != 'e')
     {
       Bencode key = decode(begin, end);
-      std::cout << "key: " << key.getString() << std::endl;
       begin++;
       Bencode value = decode(begin, end);
       bDict[key.getString()] = value;

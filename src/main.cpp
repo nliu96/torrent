@@ -1,101 +1,9 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-// #include <unordered_map>
 #include <iomanip>
-// #include "boost/any.hpp"
-#include "bencode.h"
+#include "torrent/bencode.h"
 #include <openssl/sha.h>
-
-// void load_file(std::string filename, std::vector<char>& buffer) {
-//   std::ifstream file(filename, std::ios::binary);
-//   std::streampos fileSize;
-//   file.unsetf(std::ios::skipws);
-//   file.seekg(0, std::ios::end);
-//   fileSize = file.tellg();
-//   file.seekg(0, std::ios::beg);
-//   buffer.reserve(fileSize);
-//   buffer.insert(buffer.begin(),
-//                 std::istream_iterator<char>(file),
-//                 std::istream_iterator<char>());
-// }
-
-// std::string url_encode(const std::string &value) {
-//   std::ostringstream encoded;
-//   encoded.fill('0');
-//   encoded << std::hex;
-
-//   for (std::string::const_iterator i = value.begin(); i != value.end(); i++)
-//   {
-//     std::string::value_type c = (*i);
-
-//       // Keep alphanumeric and other accepted characters intact
-//       // if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-//       //     encoded << c;
-//       //     continue;
-//       // }
-
-//       // Any other characters are percent-encoded
-//       // encoded << std::uppercase;
-//       encoded << '%' << std::setw(2) << int((unsigned char) c);
-//       encoded << std::nouppercase;
-//   }
-
-//   return encoded.str();
-// }
-
-// int main(int argc, char** argv) {
-//   // Read in torrent
-// std::ifstream myfile;
-// std::string torrentFilename = argv[1];
-// std::vector<char> buffer;
-// load_file(torrentFilename, buffer);
-
-//   std::vector<char>::iterator begin = buffer.begin();
-//   std::vector<char>::iterator end = buffer.end();
-
-//   Bencode res = decode_torrent(begin, end);
-//   std::string infoString = encode(res.getDict()["info"]);
-//   std::cout << "Info String: " << infoString << std::endl;
-//   unsigned char obuf[20];
-//   unsigned char val[infoString.length()+1];
-//   std::memcpy(val, infoString.c_str() , infoString.length());
-//   SHA1(val, sizeof(val) - 1, obuf);
-//   std::string str( obuf, obuf + sizeof obuf / sizeof obuf[0] );
-//   std::cout << "Hash: " << std::endl;
-//   for(int i=0; i<20; ++i)
-//     std::cout << std::hex << (int)obuf[i];
-//   std::cout << std::endl;
-//   std::cout << url_encode(str) << std::endl;
-//   return 0;
-// }
-//
-
-// Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-// Official repository: https://github.com/boostorg/beast
-//
-
-//
-// Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-// Official repository: https://github.com/boostorg/beast
-//
-
-//------------------------------------------------------------------------------
-//
-// Example: HTTP client, synchronous
-//
-//------------------------------------------------------------------------------
-
-//[example_http_client
-
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
@@ -104,6 +12,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+
+namespace mini_bit
+{
 
 namespace beast = boost::beast; // from <boost/beast.hpp>
 namespace http = beast::http;   // from <boost/beast/http.hpp>
@@ -170,20 +81,9 @@ int main(int argc, char **argv)
     std::vector<char>::iterator file_begin = file_buffer.begin();
     std::vector<char>::iterator file_end = file_buffer.end();
 
-    // Check command line arguments.
-    // if(argc != 4 && argc != 5)
-    // {
-    //     std::cerr <<
-    //         "Usage: http-client-sync <host> <port> <target> [<HTTP
-    //         version: 1.0 or 1.1(default)>]\n" << "Example:\n" << "
-    //         http-client-sync www.example.com 80 /\n" << "
-    //         http-client-sync www.example.com 80 / 1.0\n";
-    //     return EXIT_FAILURE;
-    // }
-
     Bencode file_bencode = decode_torrent(file_begin, file_end);
     std::string infoString = encode(file_bencode.getDict()["info"]);
-    std::cout << "Info String: " << infoString << std::endl;
+
     unsigned char obuf[20];
     unsigned char val[infoString.length() + 1];
     std::memcpy(val, infoString.c_str(), infoString.length());
@@ -195,9 +95,9 @@ int main(int argc, char **argv)
     auto const port = "6969";
     auto const target =
         "/announce?port=6881&downloaded=0&peer_id=%2D%41%5A%35%37%35%30%2D%"
-        "54%70%6B%58%74%74%5A%4C%66%70%53%48&left=1923727360&info_hash=%99%"
-        "bd%44%ad%25%13%42%db%48%e4%cf%4f%c1%10%17%a4%74%a2%5b%53&uploaded="
-        "0&compact=1&event=started";
+        "54%70%6B%58%74%74%5A%4C%66%70%53%48&left=1923727360&info_hash=" +
+        url_encode(str) + "&uploaded="
+                          "0&compact=1&event=started";
     int version = argc == 3 && !std::strcmp("1.0", argv[2]) ? 10 : 11;
 
     // The io_context is required for all I/O
@@ -258,3 +158,5 @@ int main(int argc, char **argv)
   }
   return EXIT_SUCCESS;
 }
+
+}; // namespace mini_bit
