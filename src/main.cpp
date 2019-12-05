@@ -65,93 +65,17 @@ std::string url_encode(const std::string &value) {
 
 // Performs an HTTP GET and prints the response
 int main(int argc, char **argv) {
-  try {
-    std::ifstream myfile;
-    std::string torrentFilename = argv[1];
-    std::vector<char> file_buffer;
-    load_file(torrentFilename, file_buffer);
+  std::ifstream myfile;
+  std::string torrentFilename = argv[1];
+  std::vector<char> file_buffer;
+  load_file(torrentFilename, file_buffer);
 
-    std::vector<char>::iterator file_begin = file_buffer.begin();
-    std::vector<char>::iterator file_end = file_buffer.end();
+  std::vector<char>::iterator file_begin = file_buffer.begin();
+  std::vector<char>::iterator file_end = file_buffer.end();
 
-    Bencode file_bencode = decode_torrent(file_begin, file_end);
-    mini_bit::Torrent torrent = mini_bit::Torrent(file_bencode);
-    std::string info_string = encode(file_bencode.getDict()["info"]);
-    std::string host_string = file_bencode.getDict()["announce"].getString();
-    std::cout << "Host: " << host_string << std::endl;
-    unsigned char obuf[20];
-    unsigned char val[info_string.length() + 1];
-    std::memcpy(val, info_string.c_str(), info_string.length());
-    SHA1(val, sizeof(val) - 1, obuf);
-    std::string str(obuf, obuf + sizeof obuf / sizeof obuf[0]);
-    std::cout << url_encode(str) << std::endl;
+  Bencode file_bencode = decode_torrent(file_begin, file_end);
+  mini_bit::Torrent torrent = mini_bit::Torrent(file_bencode);
+  torrent.GetTracker();
 
-    auto const host = host_string;
-    auto const port = "6969";
-    auto const target =
-        "/announce?port=6881&downloaded=0&peer_id=%2D%41%5A%35%37%35%30%2D%"
-        "54%70%6B%58%74%74%5A%4C%66%70%53%48&left=1923727360&info_hash=" +
-        url_encode(str) +
-        "&uploaded="
-        "0&compact=1&event=started";
-    // const auto target = "/announce?info_hash=" + url_encode(str) +
-    //                     "&peer_id=ABCDEFGHIJKLMNOPQRST&ip=80.11."
-    //                     "255.166&port=6881&downloaded=0&left=970";
-    int version = argc == 3 && !std::strcmp("1.0", argv[2]) ? 10 : 11;
-
-    // The io_context is required for all I/O
-    net::io_context ioc;
-
-    // These objects perform our I/O
-    tcp::resolver resolver(ioc);
-    beast::tcp_stream stream(ioc);
-
-    // Look up the domain name
-    auto const results = resolver.resolve(host, port);
-
-    // Make the connection on the IP address we get from a lookup
-    stream.connect(results);
-
-    // Set up an HTTP GET request message
-    http::request<http::string_body> req{http::verb::get, target, version};
-    req.set(http::field::host, host);
-    req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-
-    // Send the HTTP request to the remote host
-    http::write(stream, req);
-
-    // This buffer is used for reading and must be persisted
-    beast::flat_buffer buffer;
-
-    // Declare a container to hold the response
-    http::response<http::string_body> res;
-
-    // Receive the HTTP response
-    http::read(stream, buffer, res);
-
-    // Write the message to standard out
-    std::cout << res.body() << std::endl;
-    std::string body = res.body();
-    std::vector<char> v(body.begin(), body.end());
-    std::vector<char>::iterator begin = v.begin();
-    std::vector<char>::iterator end = v.end();
-
-    Bencode ben = decode_torrent(begin, end);
-
-    // Gracefully close the socket
-    beast::error_code ec;
-    stream.socket().shutdown(tcp::socket::shutdown_both, ec);
-
-    // not_connected happens sometimes
-    // so don't bother reporting it.
-    //
-    if (ec && ec != beast::errc::not_connected)
-      throw beast::system_error{ec};
-
-    // If we get here then the connection is closed gracefully
-  } catch (std::exception const &e) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return EXIT_FAILURE;
-  }
   return EXIT_SUCCESS;
 }

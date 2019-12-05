@@ -39,37 +39,37 @@ std::map<std::string, Bencode> Bencode::getDict() { return dict_; }
 
 std::string encode(Bencode in) {
   switch (in.getDataType()) {
-  case Bencode::kString: {
-    std::string length = std::to_string(in.getString().length());
-    return length + ":" + in.getString();
-  }
-
-  case Bencode::kInt: {
-    std::string integer = std::to_string(in.getInt());
-    return "i" + integer + "e";
-  }
-
-  case Bencode::kList: {
-    std::string listStrings;
-    for (size_t i = 0; i < in.getList().size(); i++) {
-      listStrings = listStrings + encode(in.getList()[i]);
+    case Bencode::kString: {
+      std::string length = std::to_string(in.getString().length());
+      return length + ":" + in.getString();
     }
-    return "l" + listStrings + "e";
-  }
 
-  case Bencode::kDict: {
-    std::string dictStrings;
-    for (const auto &dictEntry : in.getDict()) {
-      std::string length = std::to_string(dictEntry.first.length());
-      dictStrings = dictStrings + length + ":" + dictEntry.first +
-                    encode(dictEntry.second);
+    case Bencode::kInt: {
+      std::string integer = std::to_string(in.getInt());
+      return "i" + integer + "e";
     }
-    return "d" + dictStrings + "e";
-  }
 
-  default: {
-    return "error";
-  }
+    case Bencode::kList: {
+      std::string listStrings;
+      for (size_t i = 0; i < in.getList().size(); i++) {
+        listStrings = listStrings + encode(in.getList()[i]);
+      }
+      return "l" + listStrings + "e";
+    }
+
+    case Bencode::kDict: {
+      std::string dictStrings;
+      for (const auto &dictEntry : in.getDict()) {
+        std::string length = std::to_string(dictEntry.first.length());
+        dictStrings = dictStrings + length + ":" + dictEntry.first +
+                      encode(dictEntry.second);
+      }
+      return "d" + dictStrings + "e";
+    }
+
+    default: {
+      return "error";
+    }
   }
 }
 
@@ -106,8 +106,6 @@ Bencode decode(std::vector<char>::iterator &begin,
       Bencode key = decode(begin, end);
       begin++;
       Bencode value = decode(begin, end);
-      std::cout << "Key: " << key.getString() << std::endl;
-      std::cout << "Value: " << value.getString() << std::endl;
       bDict[key.getString()] = value;
       begin++;
     }
