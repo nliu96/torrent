@@ -1,4 +1,4 @@
-#include "torrent/bencode.h"
+#include "bencode.h"
 
 namespace mini_bit
 {
@@ -10,7 +10,9 @@ public:
 
 private:
   std::string announce_;
+  std::string host_;
+  int port_;
   Bencode info_;
-}
+};
 
 } // namespace mini_bit

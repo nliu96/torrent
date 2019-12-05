@@ -1,3 +1,6 @@
+#ifndef BENCODE_H
+#define BENCODE_H
+
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -37,3 +40,5 @@ std::string encode(Bencode in);
 
 Bencode decode(std::vector<char>::iterator& begin,
     std::vector<char>::iterator& end);
+
+#endif
