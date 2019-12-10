@@ -1,133 +1,110 @@
 #include "bencode.h"
-#include "boost/any.hpp"
+
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <vector>
 
-Bencode::Bencode() {}
+namespace {
 
-Bencode::Bencode(std::string const &bString) {
-  dataType_ = Bencode::kString;
-  string_ = bString;
-}
+class Visitor : public boost::static_visitor<std::string> {
+ public:
+  std::string operator()(int i) const {
+    std::string integer = std::to_string(i);
+    return "i" + integer + "e";
+  }
 
-Bencode::Bencode(int const &bInt) {
-  dataType_ = Bencode::kInt;
-  int_ = bInt;
-}
-
-Bencode::Bencode(std::vector<Bencode> const &bList) {
-  dataType_ = Bencode::kList;
-  list_ = bList;
-}
-
-Bencode::Bencode(std::map<std::string, Bencode> const &bDict) {
-  dataType_ = Bencode::kDict;
-  dict_ = bDict;
-}
-
-Bencode::DataType Bencode::getDataType() { return dataType_; }
-
-std::string Bencode::getString() { return string_; }
-
-int Bencode::getInt() { return int_; }
-
-std::vector<Bencode> Bencode::getList() { return list_; }
-
-std::map<std::string, Bencode> Bencode::getDict() { return dict_; }
-
-std::string encode(Bencode in) {
-  switch (in.getDataType()) {
-    case Bencode::kString: {
-      std::string length = std::to_string(in.getString().length());
-      return length + ":" + in.getString();
+  std::string operator()(BencodeList l) const {
+    std::string listStrings;
+    for (size_t i = 0; i < l.size(); i++) {
+      listStrings = listStrings + boost::apply_visitor(*this, l[i]);
     }
+    return "l" + listStrings + "e";
+  }
 
-    case Bencode::kInt: {
-      std::string integer = std::to_string(in.getInt());
-      return "i" + integer + "e";
+  std::string operator()(BencodeDict d) const {
+    std::string dictStrings;
+    for (const auto &dictEntry : d) {
+      std::string length = std::to_string(dictEntry.first.length());
+      dictStrings = dictStrings + length + ":" + dictEntry.first +
+                    boost::apply_visitor(*this, dictEntry.second);
     }
+    return "d" + dictStrings + "e";
+  }
 
-    case Bencode::kList: {
-      std::string listStrings;
-      for (size_t i = 0; i < in.getList().size(); i++) {
-        listStrings = listStrings + encode(in.getList()[i]);
+  std::string operator()(std::string s) const {
+    std::string length = std::to_string(s.length());
+    return length + ":" + s;
+  }
+};
+
+Bencode Decode(std::vector<char>::iterator &begin,
+               std::vector<char>::iterator &end) {
+  switch (*begin) {
+    case 'i': {
+      begin++;
+      std::string bIntString;
+      while (*begin != 'e') {
+        bIntString += *begin;
+        begin++;
       }
-      return "l" + listStrings + "e";
+      int bInt = std::stoi(bIntString);
+      return Bencode(bInt);
     }
 
-    case Bencode::kDict: {
-      std::string dictStrings;
-      for (const auto &dictEntry : in.getDict()) {
-        std::string length = std::to_string(dictEntry.first.length());
-        dictStrings = dictStrings + length + ":" + dictEntry.first +
-                      encode(dictEntry.second);
+    case 'l': {
+      BencodeList bList;
+      begin++;
+      while (*begin != 'e') {
+        Bencode value = Decode(begin, end);
+        bList.push_back(value);
+        begin++;
       }
-      return "d" + dictStrings + "e";
+      return Bencode(bList);
+    }
+
+    case 'd': {
+      std::map<std::string, Bencode> bDict;
+      begin++;
+      while (*begin != 'e') {
+        Bencode key = Decode(begin, end);
+        begin++;
+        Bencode value = Decode(begin, end);
+        bDict[boost::get<std::string>(key)] = value;
+        begin++;
+      }
+      Bencode decoded(bDict);
+      return decoded;
     }
 
     default: {
-      return "error";
+      // Byte string
+      if (std::isdigit(*begin)) {
+        std::string len_str;
+        while (*begin != ':') {
+          len_str += *begin;
+          begin++;
+        }
+        int len = std::stoi(len_str);
+        std::string str;
+        for (int i = 0; i < len; i++) {
+          str += *(++begin);
+        }
+        return Bencode(str);
+      }
+      return Bencode("Error");
     }
   }
 }
 
-Bencode decode(std::vector<char>::iterator &begin,
-               std::vector<char>::iterator &end) {
-  switch (*begin) {
+}  // namespace
 
-  case 'i': {
-    begin++;
-    std::string bIntString;
-    while (*begin != 'e') {
-      bIntString += *begin;
-      begin++;
-    }
-    int bInt = std::stoi(bIntString);
-    return Bencode(bInt);
-  }
+std::string Encode(const Bencode &data) {
+  return boost::apply_visitor(Visitor(), data);
+}
 
-  case 'l': {
-    std::vector<Bencode> bList;
-    begin++;
-    while (*begin != 'e') {
-      Bencode value = decode(begin, end);
-      bList.push_back(value);
-      begin++;
-    }
-    return Bencode(bList);
-  }
-
-  case 'd': {
-    std::map<std::string, Bencode> bDict;
-    begin++;
-    while (*begin != 'e') {
-      Bencode key = decode(begin, end);
-      begin++;
-      Bencode value = decode(begin, end);
-      bDict[key.getString()] = value;
-      begin++;
-    }
-    return Bencode(bDict);
-  }
-
-  default: {
-    // Byte string
-    if (std::isdigit(*begin)) {
-      std::string len_str;
-      while (*begin != ':') {
-        len_str += *begin;
-        begin++;
-      }
-      int len = std::stoi(len_str);
-      std::string str;
-      for (int i = 0; i < len; i++) {
-        str += *(++begin);
-      }
-      return Bencode(str);
-    }
-    return Bencode("error");
-  }
-  }
+Bencode DecodeTorrent(std::vector<char>& file_buffer) {
+  std::vector<char>::iterator file_begin = file_buffer.begin();
+  std::vector<char>::iterator file_end = file_buffer.end();
+  return Decode(file_begin, file_end);
 }
