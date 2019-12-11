@@ -8,21 +8,14 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
+#include <boost/variant.hpp>
 
 namespace beast = boost::beast;
-namespace http = beast::http;  
-namespace net = boost::asio;   
-using tcp = net::ip::tcp;      
+namespace http = beast::http;
+namespace net = boost::asio;
+using tcp = net::ip::tcp;
 
 namespace {
-
-Bencode DecodeTorrent(std::vector<char> torrent_str) {
-  std::vector<char>::iterator begin = torrent_str.begin();
-  std::vector<char>::iterator end = torrent_str.end();
-  Bencode torrentDict = decode(begin, end);
-
-  return torrentDict;
-}
 
 std::string UrlEncode(const std::string &value) {
   std::ostringstream encoded;
@@ -58,20 +51,20 @@ std::string GenerateInfoHash(const std::string &info) {
 
 std::vector<std::pair<net::ip::address, int>> ParsePeers(Bencode peers) {
   std::vector<std::pair<net::ip::address, int>> peers_list;
-  std::string peers_str = peers.getString();
+  std::string peers_str = boost::get<std::string>(peers);
   std::vector<unsigned char> peers_bytes(peers_str.begin(), peers_str.end());
   for (size_t i = 0; i < peers_bytes.size(); i += 6) {
-    std::string addr_byte_0 = std::to_string((int) peers_bytes[i + 0]);
-    std::string addr_byte_1 = std::to_string((int) peers_bytes[i + 1]);
-    std::string addr_byte_2 = std::to_string((int) peers_bytes[i + 2]);
-    std::string addr_byte_3 = std::to_string((int) peers_bytes[i + 3]);
+    std::string addr_byte_0 = std::to_string((int)peers_bytes[i + 0]);
+    std::string addr_byte_1 = std::to_string((int)peers_bytes[i + 1]);
+    std::string addr_byte_2 = std::to_string((int)peers_bytes[i + 2]);
+    std::string addr_byte_3 = std::to_string((int)peers_bytes[i + 3]);
     std::string peer_address =
         addr_byte_0 + "." + addr_byte_1 + "." + addr_byte_2 + "." + addr_byte_3;
     net::ip::address ip_address = net::ip::address::from_string(peer_address);
-    int port_byte_0 = (int) peers_bytes[i+4];
-    int port_byte_1 = (int) peers_bytes[i+5];
+    int port_byte_0 = (int)peers_bytes[i + 4];
+    int port_byte_1 = (int)peers_bytes[i + 5];
     int port = (port_byte_0 << 8) + port_byte_1;
-    peers_list.push_back( std::make_pair(ip_address, port));
+    peers_list.push_back(std::make_pair(ip_address, port));
   }
   return peers_list;
 }
@@ -81,8 +74,9 @@ std::vector<std::pair<net::ip::address, int>> ParsePeers(Bencode peers) {
 namespace mini_bit {
 
 Torrent::Torrent(Bencode torrent_info) {
-  info_hash_ = GenerateInfoHash(encode(torrent_info.getDict()["info"]));
-  announce_ = torrent_info.getDict()["announce"].getString();
+  BencodeDict torrent_dict = boost::get<BencodeDict>(torrent_info);
+  info_hash_ = GenerateInfoHash(Encode(torrent_dict["info"]));
+  announce_ = boost::get<std::string>(torrent_dict["announce"]);
   char prot[20], host[20], page[20];
   sscanf(announce_.c_str(), "%[^:]://%[^:]:%d/%s", prot, host, &port_, page);
   host_ = std::string(host);
@@ -105,9 +99,8 @@ void Torrent::GetTracker() {
 
     int version = 10;
 
-    std::string target =
-        "/announce?info_hash=" + info_hash_ +
-        "&peer_id=ABCDEFGHIJKLMNOPQRST&compact=1";
+    std::string target = "/announce?info_hash=" + info_hash_ +
+                         "&peer_id=ABCDEFGHIJKLMNOPQRST&compact=1";
 
     // Set up an HTTP GET request message
     http::request<http::string_body> req{http::verb::get, target, version};
@@ -132,7 +125,9 @@ void Torrent::GetTracker() {
     std::vector<char> v(body.begin(), body.end());
 
     Bencode ben = DecodeTorrent(v);
-    std::vector<std::pair<net::ip::address, int>> peers = ParsePeers(ben.getDict()["peers"]);
+    BencodeDict tracker_dict = boost::get<BencodeDict>(ben);
+    std::vector<std::pair<net::ip::address, int>> peers =
+        ParsePeers(tracker_dict["peers"]);
 
     // Gracefully close the socket
     beast::error_code ec;

@@ -1,17 +1,19 @@
-#include "torrent/bencode.h"
-#include "torrent/torrent.h"
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include <vector>
+
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
-#include <cstdlib>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
 #include <openssl/sha.h>
-#include <string>
-#include <vector>
+
+#include "torrent/bencode.h"
+#include "torrent/torrent.h"
 
 // namespace mini_bit {
 
@@ -19,12 +21,6 @@ namespace beast = boost::beast; // from <boost/beast.hpp>
 namespace http = beast::http;   // from <boost/beast/http.hpp>
 namespace net = boost::asio;    // from <boost/asio.hpp>
 using tcp = net::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
-
-Bencode decode_torrent(std::vector<char>::iterator &begin,
-                       std::vector<char>::iterator &end) {
-  Bencode torrentDict = decode(begin, end);
-  return torrentDict;
-}
 
 void load_file(std::string filename, std::vector<char> &buffer) {
   std::ifstream file(filename, std::ios::binary);
@@ -70,10 +66,7 @@ int main(int argc, char **argv) {
   std::vector<char> file_buffer;
   load_file(torrentFilename, file_buffer);
 
-  std::vector<char>::iterator file_begin = file_buffer.begin();
-  std::vector<char>::iterator file_end = file_buffer.end();
-
-  Bencode file_bencode = decode_torrent(file_begin, file_end);
+  Bencode file_bencode = DecodeTorrent(file_buffer);
   mini_bit::Torrent torrent = mini_bit::Torrent(file_bencode);
   torrent.GetTracker();
 

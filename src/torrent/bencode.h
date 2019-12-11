@@ -3,42 +3,19 @@
 
 #include <fstream>
 #include <iostream>
-#include <vector>
 #include <map>
-#include "boost/any.hpp"
+#include <vector>
 
-class Bencode {
-public:
-  enum DataType {
-    kString = 0,
-    kInt = 1,
-    kList = 2,
-    kDict = 3
-  };
+#include "boost/variant.hpp"
 
-  Bencode();
-  Bencode(std::string const&);
-  Bencode(int const&);
-  Bencode(std::vector<Bencode> const&);
-  Bencode(std::map<std::string, Bencode> const&);
-  Bencode(DataType dataType);
+typedef boost::make_recursive_variant<
+    int, std::vector<boost::recursive_variant_>,
+    std::map<std::string, boost::recursive_variant_>, std::string>::type
+    Bencode;
+typedef std::vector<Bencode> BencodeList;
+typedef std::map<std::string, Bencode> BencodeDict;
 
-  DataType getDataType();
-  std::string getString();
-  int getInt();
-  std::vector<Bencode> getList();
-  std::map<std::string, Bencode> getDict();
-private:
-  DataType dataType_;
-  std::string string_;
-  int int_;
-  std::vector<Bencode> list_;
-  std::map<std::string, Bencode> dict_; 
-};
-
-std::string encode(Bencode in);
-
-Bencode decode(std::vector<char>::iterator& begin,
-    std::vector<char>::iterator& end);
+std::string Encode(const Bencode& data);
+Bencode DecodeTorrent(std::vector<char>& file_buffer);
 
 #endif
