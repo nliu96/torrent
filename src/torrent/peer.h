@@ -22,6 +22,7 @@ public:
   bool Connect();
   bool Handshake();
   bool ReceiveMessage();
+  bool Interested();
 
 private:
   PeerIpPort peer_ip_port_;

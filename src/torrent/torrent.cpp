@@ -78,7 +78,6 @@ Torrent::Torrent(Bencode torrent_info) {
   char prot[20], host[20], page[20];
   sscanf(announce_.c_str(), "%[^:]://%[^:]:%d/%s", prot, host, &port_, page);
   host_ = std::string(host);
-  std::cout << host_ << std::endl;
 
   const std::string CurrentClientID = "-MB0001-";
   std::ostringstream os;
@@ -113,6 +112,8 @@ void Torrent::PeerConnect() {
   Peer peer = Peer(peers_[0], io_service_ptr, info_hash_, peer_id);
   peer.Connect();
   peer.Handshake();
+  peer.ReceiveMessage();
+  peer.Interested();
   peer.ReceiveMessage();
 }
 
