@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/variant.hpp>
+#include <curl/curl.h>
 #include <openssl/sha.h>
 
 #include "http.h"
@@ -45,8 +46,8 @@ std::vector<unsigned char> GenerateInfoHash(const std::string &info) {
   return info_hash;
 }
 
-std::vector<std::pair<net::ip::address, int>> ParsePeers(Bencode peers) {
-  std::vector<std::pair<net::ip::address, int>> peers_list;
+std::vector<mini_bit::PeerIpPort> ParsePeers(Bencode peers) {
+  std::vector<mini_bit::PeerIpPort> peers_list;
   std::string peers_str = boost::get<std::string>(peers);
   std::vector<unsigned char> peers_bytes(peers_str.begin(), peers_str.end());
   for (size_t i = 0; i < peers_bytes.size(); i += 6) {
@@ -75,10 +76,25 @@ Torrent::Torrent(Bencode torrent_info) {
   info_hash_ = GenerateInfoHash(Encode(torrent_dict["info"]));
   info_hash_encoded_ = UrlEncode(info_hash_);
   announce_ = boost::get<std::string>(torrent_dict["announce"]);
-  char prot[20], host[20], page[20];
-  sscanf(announce_.c_str(), "%[^:]://%[^:]:%d/%s", prot, host, &port_, page);
-  host_ = std::string(host);
-  std::cout << host_ << std::endl;
+
+  CURLU *h;
+  CURLUcode uc;
+  char *host;
+  char *port;
+  h = curl_url();
+  uc = curl_url_set(h, CURLUPART_URL, announce_.c_str(), 0);
+  uc = curl_url_get(h, CURLUPART_HOST, &host, 0);
+  if (!uc) {
+    host_ = std::string(host);
+    curl_free(host);
+  }
+  uc = curl_url_get(h, CURLUPART_PORT, &port, 0);
+  if (!uc) {
+    port_ = std::atoi(port);
+    curl_free(port);
+  } else {
+    port_ = 6969;
+  }
 
   const std::string CurrentClientID = "-MB0001-";
   std::ostringstream os;
@@ -87,14 +103,16 @@ Torrent::Torrent(Bencode torrent_info) {
     os << digit;
   }
   peer_id_ = CurrentClientID + os.str();
+  io_service_ptr_ = boost::make_shared<boost::asio::io_service>();
+  file_length_ =
+      boost::get<int>(boost::get<BencodeDict>(torrent_dict["info"])["length"]);
 }
 
 void Torrent::SendTrackerRequest() {
-  std::string target =
-      "/announce?info_hash=" + info_hash_encoded_ + "&peer_id=" + peer_id_ +
-      "&port=6889&uploaded=0&downloaded=0&left=2097152000&compact=1";
-
-  std::cout << target << std::endl;
+  std::string target = "/announce?info_hash=" + info_hash_encoded_ +
+                       "&peer_id=" + peer_id_ +
+                       "&port=6889&uploaded=0&downloaded=0&left=" +
+                       std::to_string(file_length_) + "&compact=1";
 
   std::string response_string = GetRequest(host_, port_, target);
 
@@ -106,13 +124,12 @@ void Torrent::SendTrackerRequest() {
 }
 
 void Torrent::PeerConnect() {
-  boost::shared_ptr<boost::asio::io_service> io_service_ptr =
-      boost::make_shared<boost::asio::io_service>();
-
   std::vector<unsigned char> peer_id(peer_id_.begin(), peer_id_.end());
-  Peer peer = Peer(peers_[0], io_service_ptr, info_hash_, peer_id);
+  Peer peer = Peer(peers_[0], io_service_ptr_, info_hash_, peer_id);
   peer.Connect();
   peer.Handshake();
+  peer.ReceiveMessage();
+  peer.Interested();
   peer.ReceiveMessage();
 }
 

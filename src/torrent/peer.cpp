@@ -24,11 +24,11 @@ bool Peer::Connect() {
 }
 
 bool Peer::Handshake() {
-  std::vector<unsigned char> msg = MakeHandShake(info_hash_, client_peer_id_);
+  std::vector<unsigned char> msg = MakeHandshake(info_hash_, client_peer_id_);
   boost::asio::write(socket_, boost::asio::buffer(msg));
   std::vector<unsigned char> handshake_response(68);
   boost::asio::read(socket_, boost::asio::buffer(handshake_response));
-  target_peer_id_ = ReadHandShake(handshake_response);
+  target_peer_id_ = ReadHandshake(handshake_response);
   return true;
 }
 
@@ -48,8 +48,14 @@ bool Peer::ReceiveMessage() {
   std::vector<unsigned char> payload(len - 1);
   boost::asio::read(socket_, boost::asio::buffer(payload));
 
-  std::cout << "Message Id " << (unsigned int)msg_id[0] << std::endl;
+  std::cout << "Message ID " << (unsigned int)msg_id[0] << std::endl;
 
+  return true;
+}
+
+bool Peer::Interested() {
+  std::vector<unsigned char> msg = MakeInterested();
+  boost::asio::write(socket_, boost::asio::buffer(msg));
   return true;
 }
 
