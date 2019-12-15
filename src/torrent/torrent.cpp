@@ -73,6 +73,7 @@ namespace mini_bit {
 
 Torrent::Torrent(Bencode torrent_info) {
   BencodeDict torrent_dict = boost::get<BencodeDict>(torrent_info);
+  BencodeDict info_dict = boost::get<BencodeDict>(torrent_dict["info"]);
   info_hash_ = GenerateInfoHash(Encode(torrent_dict["info"]));
   info_hash_encoded_ = UrlEncode(info_hash_);
   announce_ = boost::get<std::string>(torrent_dict["announce"]);
@@ -104,8 +105,18 @@ Torrent::Torrent(Bencode torrent_info) {
   }
   peer_id_ = CurrentClientID + os.str();
   io_service_ptr_ = boost::make_shared<boost::asio::io_service>();
-  file_length_ =
-      boost::get<int>(boost::get<BencodeDict>(torrent_dict["info"])["length"]);
+  file_length_ = boost::get<int>(info_dict["length"]);
+  std::cout << "File Length " << file_length_ << std::endl;
+  piece_length_ = boost::get<int>(info_dict["piece length"]);
+  std::cout << "Piece Length " << piece_length_ << std::endl;
+  std::string pieces = boost::get<std::string>(info_dict["pieces"]);
+  num_pieces_ = pieces.size() / 20;
+  std::cout << "Num Pieces " << num_pieces_ << std::endl;
+  for (int i = 0; i < num_pieces_; i += 20) {
+    std::string hash_str = pieces.substr(i, 20);
+    std::vector<unsigned char> hash(hash_str.begin(), hash_str.end());
+    piece_hashes_.push_back(hash);
+  }
 }
 
 void Torrent::SendTrackerRequest() {
@@ -128,9 +139,17 @@ void Torrent::PeerConnect() {
   Peer peer = Peer(peers_[0], io_service_ptr_, info_hash_, peer_id);
   peer.Connect();
   peer.Handshake();
-  peer.ReceiveMessage();
+  PeerMessage bitfield_msg = peer.ReceiveMessage();
   peer.Interested();
-  peer.ReceiveMessage();
+  PeerMessage unchoke_msg = peer.ReceiveMessage();
+  // for (int piece = 0; piece < num_pieces_; ++piece) {
+  //   for (int offset = 0; offset < piece_length_ / kBlockSize;
+  //        offset += kBlockSize) {
+  //     peer.Request(piece, offset, kBlockSize);
+  //   }
+  // }
+  peer.Request(0x0, 0x0, kBlockSize);
+  PeerMessage piece_msg = peer.ReceiveMessage();
 }
 
 } // namespace mini_bit

@@ -10,6 +10,8 @@ std::vector<unsigned char> MakeHandshake(std::vector<unsigned char> info_hash,
 
 std::vector<unsigned char> MakeInterested();
 
+std::vector<unsigned char> MakeRequest(int piece, int offset, int block_size);
+
 std::vector<unsigned char> ReadHandshake(std::vector<unsigned char> handshake);
 
 } // namespace mini_bit

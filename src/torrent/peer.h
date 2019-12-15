@@ -12,6 +12,41 @@ namespace mini_bit {
 using tcp = boost::asio::ip::tcp;
 using PeerIpPort = std::pair<boost::asio::ip::address, int>;
 
+enum PeerMessageType {
+  kKeepAlive = -1,
+  kChoke = 0,
+  kUnchoke = 1,
+  kInterested = 2,
+  kNotInterested = 3,
+  kHave = 4,
+  kBitfield = 5,
+  kRequest = 6,
+  kPiece = 7,
+  kCancel = 8,
+  kPort = 9,
+};
+
+struct PeerMessage {
+  int len;
+  int id;
+  std::vector<unsigned char> payload;
+
+  PeerMessage(int len_) : len(len_) {}
+
+  PeerMessage(int len_, int id_) : len(len_), id(id_) {}
+
+  PeerMessage(int len_, int id_, std::vector<unsigned char> payload_)
+      : len(len_), id(id_), payload(payload_) {}
+
+  PeerMessageType GetMessageType() {
+    if (len == 0) {
+      return kKeepAlive;
+    } else {
+      return static_cast<PeerMessageType>(len);
+    }
+  }
+};
+
 class Peer {
 public:
   Peer(PeerIpPort peer_ip_port,
@@ -21,8 +56,9 @@ public:
 
   bool Connect();
   bool Handshake();
-  bool ReceiveMessage();
+  PeerMessage ReceiveMessage();
   bool Interested();
+  bool Request(int piece, int offset, int block_size);
 
 private:
   PeerIpPort peer_ip_port_;
