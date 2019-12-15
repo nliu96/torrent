@@ -32,7 +32,7 @@ bool Peer::Handshake() {
   return true;
 }
 
-bool Peer::ReceiveMessage() {
+PeerMessage Peer::ReceiveMessage() {
   std::vector<unsigned char> length_prefix(4);
   boost::asio::read(socket_, boost::asio::buffer(length_prefix));
 
@@ -42,19 +42,34 @@ bool Peer::ReceiveMessage() {
   }
   std::cout << "Length " << len << std::endl;
 
+  // keep-alive message
+  if (len == 0) {
+    return PeerMessage(len);
+  }
+
   std::vector<unsigned char> msg_id(1);
   boost::asio::read(socket_, boost::asio::buffer(msg_id));
+
+  if (len == 1) {
+    return PeerMessage(len, msg_id[0]);
+  }
 
   std::vector<unsigned char> payload(len - 1);
   boost::asio::read(socket_, boost::asio::buffer(payload));
 
   std::cout << "Message ID " << (unsigned int)msg_id[0] << std::endl;
 
-  return true;
+  return PeerMessage(len, msg_id[0], payload);
 }
 
 bool Peer::Interested() {
   std::vector<unsigned char> msg = MakeInterested();
+  boost::asio::write(socket_, boost::asio::buffer(msg));
+  return true;
+}
+
+bool Peer::Request(int piece, int offset, int block_size) {
+  std::vector<unsigned char> msg = MakeRequest(piece, offset, block_size);
   boost::asio::write(socket_, boost::asio::buffer(msg));
   return true;
 }
