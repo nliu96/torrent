@@ -1,8 +1,13 @@
 #include "http.h"
 
+#include <iomanip>
 #include <iostream>
+#include <sstream>
+
+#include <openssl/sha.h>
 
 namespace {
+
 size_t writeFunction(void *ptr, size_t size, size_t nmemb, std::string *data) {
   data->append((char *)ptr, size * nmemb);
   return size * nmemb;
@@ -43,6 +48,27 @@ std::string GetRequest(std::string host, int port, std::string target) {
   curl = NULL;
 
   return response_string;
+}
+
+std::string UrlEncode(const std::vector<unsigned char> &value) {
+  std::ostringstream encoded;
+  encoded.fill('0');
+  encoded << std::hex;
+
+  for (char c : value) {
+    // Keep alphanumeric and other accepted characters intact
+    if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+      encoded << c;
+      continue;
+    }
+
+    // Any other characters are percent-encoded
+    encoded << std::uppercase;
+    encoded << '%' << std::setw(2) << int((unsigned char)c);
+    encoded << std::nouppercase;
+  }
+
+  return encoded.str();
 }
 
 } // namespace mini_bit

@@ -1,7 +1,5 @@
 #include "torrent.h"
 
-#include <iomanip>
-
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <boost/make_shared.hpp>
@@ -15,27 +13,6 @@
 namespace net = boost::asio;
 
 namespace {
-
-std::string UrlEncode(const std::vector<unsigned char> &value) {
-  std::ostringstream encoded;
-  encoded.fill('0');
-  encoded << std::hex;
-
-  for (char c : value) {
-    // Keep alphanumeric and other accepted characters intact
-    if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-      encoded << c;
-      continue;
-    }
-
-    // Any other characters are percent-encoded
-    encoded << std::uppercase;
-    encoded << '%' << std::setw(2) << int((unsigned char)c);
-    encoded << std::nouppercase;
-  }
-
-  return encoded.str();
-}
 
 std::vector<unsigned char> GenerateInfoHash(const std::string &info) {
   unsigned char obuf[20];
@@ -117,6 +94,9 @@ Torrent::Torrent(Bencode torrent_info) {
     std::vector<unsigned char> hash(hash_str.begin(), hash_str.end());
     piece_hashes_.push_back(hash);
   }
+  std::string file_name = boost::get<std::string>(info_dict["name"]);
+  out_file_ =
+      std::ofstream(file_name, std::ofstream::out | std::ofstream::binary);
 }
 
 void Torrent::SendTrackerRequest() {
@@ -150,6 +130,12 @@ void Torrent::PeerConnect() {
   // }
   peer.Request(0x0, 0x0, kBlockSize);
   PeerMessage piece_msg = peer.ReceiveMessage();
+  out_file_.write((const char *)&(piece_msg.payload)[0],
+                  piece_msg.payload.size());
+  peer.Request(0x0, kBlockSize, kBlockSize);
+  piece_msg = peer.ReceiveMessage();
+  // out_file_.write((const char *)&(piece_msg.payload)[0],
+  //                 piece_msg.payload.size());
 }
 
 } // namespace mini_bit

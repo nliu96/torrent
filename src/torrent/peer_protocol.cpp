@@ -56,15 +56,10 @@ std::vector<unsigned char> MakeRequest(int piece, int offset, int block_size) {
   msg.push_back((offset >> 8) & 0xff);
   msg.push_back((offset >> 0) & 0xff);
   // offset
-  std::cout << "Block size " << block_size << std::endl;
   msg.push_back((block_size >> 24) & 0xff);
   msg.push_back((block_size >> 16) & 0xff);
   msg.push_back((block_size >> 8) & 0xff);
   msg.push_back((block_size >> 0) & 0xff);
-
-  for (auto c : msg) {
-    std::cout << (unsigned int)c << std::endl;
-  }
 
   return msg;
 }

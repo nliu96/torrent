@@ -28,6 +28,7 @@ private:
   std::vector<std::vector<unsigned char>> piece_hashes_;
   std::vector<PeerIpPort> peers_;
   Bencode info_;
+  std::ofstream out_file_;
 };
 
 } // namespace mini_bit
